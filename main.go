@@ -12,9 +12,10 @@ type FileNode struct {
 	Name     string
 	IsDir    bool
 	Children map[string]*FileNode
-	Mutex    sync.Mutex
 	Parent   *FileNode
 }
+
+var mutex sync.Mutex
 
 func main() {
 	root, err := buildFileTree("input.txt")
@@ -34,17 +35,10 @@ func buildFileTree(filePath string) (*FileNode, error) {
 	}
 	defer file.Close()
 
-	var wg sync.WaitGroup
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		wg.Add(1)
-		go func(path string) {
-			defer wg.Done()
-			addToTree(root, path)
-		}(scanner.Text())
+		addToTree(root, scanner.Text())
 	}
-
-	wg.Wait()
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
@@ -56,23 +50,26 @@ func buildFileTree(filePath string) (*FileNode, error) {
 func addToTree(root *FileNode, path string) {
 	parts := strings.Split(path, "/")
 	currentNode := root
+	isLastComponentDir := path[len(path)-1] == '/'
 
-	for _, part := range parts {
+	for i, part := range parts {
 		if part == "" {
-			continue
+			if i < len(parts)-1 || !isLastComponentDir {
+				continue
+			}
 		}
 
-		currentNode.Mutex.Lock()
+		mutex.Lock()
 		if _, exists := currentNode.Children[part]; !exists {
 			newNode := &FileNode{Name: part, IsDir: true, Children: make(map[string]*FileNode), Parent: currentNode}
 			currentNode.Children[part] = newNode
 		}
-		currentNode.Mutex.Unlock()
-
 		currentNode = currentNode.Children[part]
+		mutex.Unlock()
+		if i == len(parts)-1 {
+			currentNode.IsDir = isLastComponentDir || part == ""
+		}
 	}
-
-	currentNode.IsDir = false
 }
 
 func compareDirectories(node1, node2 *FileNode, threshold float64) (float64, bool) {
@@ -109,24 +106,23 @@ func findAndPrintSimilarDirectories(root *FileNode, threshold float64) {
 }
 
 func calculateSimilarity(node1, node2 *FileNode) float64 {
-	totalUnique := make(map[string]bool)
-	matches := 0
-
-	// Учитываем имена дочерних элементов и файлов
+	children1 := make(map[string]struct{})
 	for name := range node1.Children {
-		totalUnique[name] = true
+		children1[name] = struct{}{}
 	}
+
+	matches := 0
+	total := len(children1)
 	for name := range node2.Children {
-		if _, exists := totalUnique[name]; exists {
+		if _, exists := children1[name]; exists {
 			matches++
 		} else {
-			totalUnique[name] = true
+			total++
 		}
 	}
 
-	total := len(totalUnique)
 	if total == 0 {
-		return 100
+		return 100.0
 	}
 
 	return float64(matches) / float64(total) * 100
@@ -141,15 +137,13 @@ func getPath(node *FileNode) string {
 	return "/" + strings.Join(parts, "/")
 }
 
-func collectDirectories(node *FileNode) []*FileNode {
+func collectDirectories(root *FileNode) []*FileNode {
 	var directories []*FileNode
-	var stack []*FileNode
+	stack := []*FileNode{root}
 
-	stack = append(stack, node)
 	for len(stack) > 0 {
-		n := len(stack) - 1
-		current := stack[n]
-		stack = stack[:n]
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
 
 		if current.IsDir {
 			directories = append(directories, current)
