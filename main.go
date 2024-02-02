@@ -63,6 +63,7 @@ func addToTree(root *FileNode, path string) {
 		if _, exists := currentNode.Children[part]; !exists {
 			newNode := &FileNode{Name: part, IsDir: true, Children: make(map[string]*FileNode), Parent: currentNode}
 			currentNode.Children[part] = newNode
+		} else {
 		}
 		currentNode = currentNode.Children[part]
 		mutex.Unlock()
@@ -73,7 +74,10 @@ func addToTree(root *FileNode, path string) {
 }
 
 func compareDirectories(node1, node2 *FileNode, threshold float64) (float64, bool) {
-	if node1 == nil || node2 == nil {
+	if node1 == nil || node2 == nil || isAncestor(node1, node2) || isAncestor(node2, node1) {
+		return 0.0, false
+	}
+	if node1.Name == "" && node2.Name == "" {
 		return 0.0, false
 	}
 
@@ -89,6 +93,15 @@ func compareDirectories(node1, node2 *FileNode, threshold float64) (float64, boo
 	}
 
 	return 0.0, false
+}
+
+func isAncestor(ancestor, descendant *FileNode) bool {
+	for n := descendant; n != nil; n = n.Parent {
+		if n == ancestor {
+			return true
+		}
+	}
+	return false
 }
 
 func findAndPrintSimilarDirectories(root *FileNode, threshold float64) {
@@ -139,19 +152,21 @@ func getPath(node *FileNode) string {
 
 func collectDirectories(root *FileNode) []*FileNode {
 	var directories []*FileNode
-	stack := []*FileNode{root}
-
-	for len(stack) > 0 {
-		current := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-
-		if current.IsDir {
-			directories = append(directories, current)
-			for _, child := range current.Children {
-				stack = append(stack, child)
-			}
+	var collect func(node *FileNode)
+	collect = func(node *FileNode) {
+		if node == nil {
+			return
+		}
+		for _, child := range node.Children {
+			collect(child)
+		}
+		if node.IsDir {
+			directories = append(directories, node)
 		}
 	}
-
+	collect(root)
+	if len(directories) > 0 && directories[len(directories)-1] == root {
+		directories = directories[:len(directories)-1]
+	}
 	return directories
 }
