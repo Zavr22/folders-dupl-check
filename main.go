@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	levenshtein "github.com/agnivade/levenshtein"
 	"os"
 	"strings"
 	"sync"
@@ -110,12 +111,46 @@ func findAndPrintSimilarDirectories(root *FileNode, threshold float64) {
 	for i := 0; i < len(directories); i++ {
 		for j := i + 1; j < len(directories); j++ {
 			similarity, isTopLevel := compareDirectories(directories[i], directories[j], threshold)
-			if similarity >= threshold && isTopLevel {
+			if similarity >= threshold && isTopLevel && countElements(directories[i]) > 5 && calcSimilarity(directories[i].Name, directories[j].Name) > 70 {
 				fmt.Printf("Схожие директории: %s и %s, схожесть: %.2f%%\n",
 					getPath(directories[i]), getPath(directories[j]), similarity)
 			}
 		}
 	}
+}
+
+func calcSimilarity(a, b string) float64 {
+	distance := levenshtein.ComputeDistance(a, b)
+	maxLen := max(len(a), len(b))
+	if maxLen == 0 {
+		return 1.0
+	}
+	return (1 - float64(distance)/float64(maxLen)) * 100
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func countElements(node *FileNode) int {
+	count := 0
+	var queue []*FileNode
+	queue = append(queue, node)
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		for _, child := range current.Children {
+			queue = append(queue, child)
+			count++
+		}
+	}
+
+	return count
 }
 
 func calculateSimilarity(node1, node2 *FileNode) float64 {
