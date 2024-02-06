@@ -105,17 +105,34 @@ func addToTree(root *FileNode, path string) {
 // 	return false
 // }
 
+func isSimilarByParents(node1, node2 *FileNode, threshold float64) bool {
+	if node1.Name == "" || node2.Name == "" || node1.Parent.Name == node2.Parent.Name {
+		return true
+	}
+	if node1.Parent.Name == "" || node2.Parent.Name == "" {
+		return false
+	}
+	parentSimilarity := calcSimilarity(node1.Parent.Name, node2.Parent.Name)
+	if parentSimilarity < threshold {
+		return false
+	}
+
+	return isSimilarByParents(node1.Parent, node2.Parent, threshold)
+}
+
 func findAndPrintSimilarDirectories(root *FileNode, threshold float64) {
 	directories := collectDirectories(root)
 
 	for i := 0; i < len(directories); i++ {
 		for j := i + 1; j < len(directories); j++ {
 			similarity := calcSimilarity(directories[i].Name, directories[j].Name)
-			if similarity >= threshold {
+			if similarity >= 50 {
 				dirSim := calculateSimilarity(directories[i], directories[j])
 				if dirSim >= threshold && findLesserContentDirectoryCount(directories[i], directories[j]) >= 5 {
-					fmt.Printf("Схожие директории: %s и %s, схожесть: %.2f%%\n",
-						getPath(directories[i]), getPath(directories[j]), dirSim)
+					if isSimilarByParents(directories[i], directories[j], threshold) {
+						fmt.Printf("Схожие директории: %s и %s, схожесть: %.2f%%\n",
+							getPath(directories[i]), getPath(directories[j]), dirSim)
+					}
 				}
 			}
 		}
@@ -139,8 +156,8 @@ func max(a, b int) int {
 }
 
 func findLesserContentDirectoryCount(dir1, dir2 *FileNode) int {
-	count1 := countElements(dir1)
-	count2 := countElements(dir2)
+	count1 := countImmediateChildren(dir1)
+	count2 := countImmediateChildren(dir2)
 
 	if count1 < count2 {
 		return count1
@@ -163,6 +180,14 @@ func countElements(node *FileNode) int {
 		}
 	}
 
+	return count
+}
+
+func countImmediateChildren(node *FileNode) int {
+	count := 0
+	for range node.Children {
+		count++
+	}
 	return count
 }
 
