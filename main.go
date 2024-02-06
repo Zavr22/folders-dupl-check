@@ -24,7 +24,7 @@ func main() {
 		panic(err)
 	}
 
-	findAndPrintSimilarDirectories(root, 50)
+	findAndPrintSimilarDirectories(root, 80.0)
 }
 
 func buildFileTree(filePath string) (*FileNode, error) {
@@ -74,46 +74,49 @@ func addToTree(root *FileNode, path string) {
 	}
 }
 
-func compareDirectories(node1, node2 *FileNode, threshold float64) (float64, bool) {
-	if node1 == nil || node2 == nil || isAncestor(node1, node2) || isAncestor(node2, node1) {
-		return 0.0, false
-	}
-	if node1.Name == "" && node2.Name == "" {
-		return 0.0, false
-	}
+// func compareDirectories(node1, node2 *FileNode, threshold float64) (float64, bool) {
+// 	if node1 == nil || node2 == nil || isAncestor(node1, node2) || isAncestor(node2, node1) {
+// 		return 0.0, false
+// 	}
+// 	if node1.Name == "" && node2.Name == "" {
+// 		return 0.0, false
+// 	}
 
-	similarity := calculateSimilarity(node1, node2)
-	if similarity >= threshold {
-		if node1.Parent != nil && node2.Parent != nil {
-			parentSimilarity, _ := compareDirectories(node1.Parent, node2.Parent, threshold)
-			if parentSimilarity >= threshold {
-				return parentSimilarity, false
-			}
-		}
-		return similarity, true
-	}
+// 	similarity := calculateSimilarity(node1, node2)
+// 	if similarity >= threshold {
+// 		if node1.Parent != nil && node2.Parent != nil {
+// 			parentSimilarity, _ := compareDirectories(node1.Parent, node2.Parent, threshold)
+// 			if parentSimilarity >= threshold {
+// 				return parentSimilarity, false
+// 			}
+// 		}
+// 		return similarity, true
+// 	}
 
-	return 0.0, false
-}
+// 	return 0.0, false
+// }
 
-func isAncestor(ancestor, descendant *FileNode) bool {
-	for n := descendant; n != nil; n = n.Parent {
-		if n == ancestor {
-			return true
-		}
-	}
-	return false
-}
+// func isAncestor(ancestor, descendant *FileNode) bool {
+// 	for n := descendant; n != nil; n = n.Parent {
+// 		if n == ancestor {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
 func findAndPrintSimilarDirectories(root *FileNode, threshold float64) {
 	directories := collectDirectories(root)
 
 	for i := 0; i < len(directories); i++ {
 		for j := i + 1; j < len(directories); j++ {
-			similarity, isTopLevel := compareDirectories(directories[i], directories[j], threshold)
-			if similarity >= threshold && isTopLevel && countElements(directories[i]) > 5 && calcSimilarity(directories[i].Name, directories[j].Name) > 70 {
-				fmt.Printf("Схожие директории: %s и %s, схожесть: %.2f%%\n",
-					getPath(directories[i]), getPath(directories[j]), similarity)
+			similarity := calcSimilarity(directories[i].Name, directories[j].Name)
+			if similarity >= threshold {
+				dirSim := calculateSimilarity(directories[i], directories[j])
+				if dirSim >= threshold && findLesserContentDirectoryCount(directories[i], directories[j]) >= 5 {
+					fmt.Printf("Схожие директории: %s и %s, схожесть: %.2f%%\n",
+						getPath(directories[i]), getPath(directories[j]), dirSim)
+				}
 			}
 		}
 	}
@@ -133,6 +136,16 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func findLesserContentDirectoryCount(dir1, dir2 *FileNode) int {
+	count1 := countElements(dir1)
+	count2 := countElements(dir2)
+
+	if count1 < count2 {
+		return count1
+	}
+	return count2
 }
 
 func countElements(node *FileNode) int {
@@ -185,23 +198,25 @@ func getPath(node *FileNode) string {
 	return "/" + strings.Join(parts, "/")
 }
 
-func collectDirectories(root *FileNode) []*FileNode {
+func collectDirectories(node *FileNode) []*FileNode {
 	var directories []*FileNode
-	var collect func(node *FileNode)
-	collect = func(node *FileNode) {
-		if node == nil {
-			return
-		}
-		for _, child := range node.Children {
-			collect(child)
-		}
-		if node.IsDir {
-			directories = append(directories, node)
+	var queue []*FileNode
+	for _, child := range node.Children {
+		if child.IsDir {
+			queue = append(queue, child)
 		}
 	}
-	collect(root)
-	if len(directories) > 0 && directories[len(directories)-1] == root {
-		directories = directories[:len(directories)-1]
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		directories = append(directories, current)
+		for _, child := range current.Children {
+			if child.IsDir {
+				queue = append(queue, child)
+			}
+		}
 	}
 	return directories
 }

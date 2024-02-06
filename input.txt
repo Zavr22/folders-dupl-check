@@ -18,7 +18,6 @@
 /workspace/projects/projectX/logs2/error.log
 /workspace/projects/projectX/logs3/error.log
 /workspace/projects/projectX/logs4/error.log
-/workspace/projects/projectX/logs5/error.log
 /workspace/projects/projectY/config/settings.ini
 /workspace/projects/projectY/logs1/error.log
 /workspace/projects/projectY/logs2/error.log
