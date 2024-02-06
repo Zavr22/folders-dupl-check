@@ -110,14 +110,14 @@ func isSimilarByParents(node1, node2 *FileNode, threshold float64) bool {
 		return true
 	}
 	if node1.Parent.Name == "" || node2.Parent.Name == "" {
-		return false
+		return true
 	}
 	parentSimilarity := calcSimilarity(node1.Parent.Name, node2.Parent.Name)
-	if parentSimilarity < threshold {
+	if parentSimilarity >= threshold {
 		return false
 	}
 
-	return isSimilarByParents(node1.Parent, node2.Parent, threshold)
+	return true
 }
 
 func findAndPrintSimilarDirectories(root *FileNode, threshold float64) {
@@ -126,7 +126,7 @@ func findAndPrintSimilarDirectories(root *FileNode, threshold float64) {
 	for i := 0; i < len(directories); i++ {
 		for j := i + 1; j < len(directories); j++ {
 			similarity := calcSimilarity(directories[i].Name, directories[j].Name)
-			if similarity >= 50 {
+			if similarity >= threshold {
 				dirSim := calculateSimilarity(directories[i], directories[j])
 				if dirSim >= threshold && findLesserContentDirectoryCount(directories[i], directories[j]) >= 5 {
 					if isSimilarByParents(directories[i], directories[j], threshold) {
